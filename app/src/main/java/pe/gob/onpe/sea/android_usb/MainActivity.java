@@ -2,7 +2,6 @@ package pe.gob.onpe.sea.android_usb;
 
 import android.Manifest;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -67,90 +66,65 @@ public class MainActivity extends AppCompatActivity {
 //        test();
 //        tvLoad.setText(str.toString());
 
-//        PendingIntent permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-//        usbManager.requestPermission(device.getUsbDevice(), permissionIntent);
-/*
-        UsbMassStorageDevice[] devices = UsbMassStorageDevice.getMassStorageDevices(this );
-
-        StringBuilder str = new StringBuilder();
-        for(UsbMassStorageDevice device: devices) {
-
-            // before interacting with a device you need to call init()!
-            try {
-                device.init();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            // Only uses the first partition on the device
-            FileSystem currentFs = device.getPartitions().get(0).getFileSystem();
-            str.append(currentFs.getCapacity());
-            str.append(currentFs.getOccupiedSpace());
-            str.append(currentFs.getFreeSpace());
-            str.append(currentFs.getChunkSize());
-        }
-        tvLoad.setText(str.toString());
-*/
         // https://developer.android.com/training/data-storage/app-specific#java
         File[] externalStorageVolumes = ContextCompat.getExternalFilesDirs(getApplicationContext(), null);
-//        for (int i = 0; i < externalStorageVolumes.length; i++) {
-//            System.out.println("Volumes:" + externalStorageVolumes[i].getAbsolutePath());
-//        }
-///*
         FL.i(TAG, Arrays.toString(externalStorageVolumes));
         tvLoad.setText(Arrays.toString(externalStorageVolumes));
-//        tvLoad.setText(getUsbPaths(getApplicationContext()).toString());
-//*/
-        btnSave.setOnClickListener(v -> {
-            tvLoad.setText("");
-            fileContent = etInput.getText().toString().trim();
-            if (!fileContent.equals("")) {
-                String directory = externalStorageVolumes[1].getAbsolutePath()  + File.separator + filePath;
-                File myExternalFolder = new File(directory);
-                if (!myExternalFolder.exists()) {
-                    if(!myExternalFolder.mkdir()) {
-                        FL.e(TAG, "Directory wasn't created: " + directory);
-                        return;
-                    }
-                    FL.w(TAG, "Created directory: " + myExternalFolder.getAbsolutePath());
-                }
-                File myExternalFile = new File(directory, fileName);
-                FL.i(TAG, "File to be written: " + myExternalFile.getAbsolutePath());
-                FileOutputStream fos;
-                try {
-                    fos = new FileOutputStream(myExternalFile);
-                    fos.write(fileContent.getBytes());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                etInput.setText("");
-                Toast.makeText(MainActivity.this, getString(R.string.message_data_saved), Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(MainActivity.this, getString(R.string.message_data_error), Toast.LENGTH_LONG).show();
-            }
-        });
 
-        btnLoad.setOnClickListener(v -> {
-            FileReader fr;
-            String myExternalFolder = externalStorageVolumes[1] + File.separator + filePath;
-            File myExternalFile = new File(myExternalFolder, fileName);
-            FL.i(TAG, "File to be read: " + myExternalFile.getAbsolutePath());
-            StringBuilder stringBuilder = new StringBuilder();
-            try {
-                fr = new FileReader(myExternalFile);
-                BufferedReader br = new BufferedReader(fr);
-                String line = br.readLine();
-                while (line != null) {
-                    stringBuilder.append(line).append("\n");
-                    line = br.readLine();
+        btnSave.setOnClickListener(v -> writeSDCard(externalStorageVolumes[1].getAbsolutePath()));
+
+        btnLoad.setOnClickListener(v -> readSDCard(externalStorageVolumes[1].getAbsolutePath()));
+    }
+
+    private void writeSDCard(String externalStorageVolume) {
+        tvLoad.setText("");
+        fileContent = etInput.getText().toString().trim();
+        if (!fileContent.equals("")) {
+            String directory = externalStorageVolume + File.separator + filePath;
+            File myExternalFolder = new File(directory);
+            if (!myExternalFolder.exists()) {
+                if(!myExternalFolder.mkdir()) {
+                    FL.e(TAG, "Directory wasn't created: " + directory);
+                    return;
                 }
+                FL.w(TAG, "Created directory: " + myExternalFolder.getAbsolutePath());
+            }
+            File myExternalFile = new File(directory, fileName);
+            FL.i(TAG, "File to be written: " + myExternalFile.getAbsolutePath());
+            FileOutputStream fos;
+            try {
+                fos = new FileOutputStream(myExternalFile);
+                fos.write(fileContent.getBytes());
             } catch (IOException e) {
                 e.printStackTrace();
-            } finally {
-                String fileContents = "El archivo contiene:\n" + stringBuilder.toString();
-                tvLoad.setText(fileContents);
             }
-        });
+            etInput.setText("");
+            Toast.makeText(MainActivity.this, getString(R.string.message_data_saved), Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(MainActivity.this, getString(R.string.message_data_error), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void readSDCard(String externalStorageVolume) {
+        FileReader fr;
+        String myExternalFolder = externalStorageVolume + File.separator + filePath;
+        File myExternalFile = new File(myExternalFolder, fileName);
+        FL.i(TAG, "File to be read: " + myExternalFile.getAbsolutePath());
+        StringBuilder stringBuilder = new StringBuilder();
+        try {
+            fr = new FileReader(myExternalFile);
+            BufferedReader br = new BufferedReader(fr);
+            String line = br.readLine();
+            while (line != null) {
+                stringBuilder.append(line).append("\n");
+                line = br.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            String fileContents = "El archivo contiene:\n" + stringBuilder.toString();
+            tvLoad.setText(fileContents);
+        }
     }
 
     private boolean isExternalStorageAvailableForRW() {
@@ -159,6 +133,7 @@ public class MainActivity extends AppCompatActivity {
         return externalStorageState.equals(Environment.MEDIA_MOUNTED);
     }
 
+    /*
     private BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             System.out.println("onReceive: " + intent);
@@ -184,8 +159,11 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
+//    */
+
     private void init() {
         //USB Manager
+        UsbReceiver mUsbReceiver = new UsbReceiver();
         mUsbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
         mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
 
