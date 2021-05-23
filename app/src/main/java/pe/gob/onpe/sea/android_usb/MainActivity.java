@@ -7,10 +7,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.storage.StorageManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -19,6 +17,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import com.bosphere.filelogger.FL;
 import com.github.mjdev.libaums.UsbMassStorageDevice;
 import com.github.mjdev.libaums.fs.FileSystem;
 import com.github.mjdev.libaums.fs.UsbFile;
@@ -27,19 +26,17 @@ import com.github.mjdev.libaums.partition.Partition;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-
-
+    private static final String TAG = MainActivity.class.getSimpleName();
     private static final String ACTION_USB_PERMISSION = "com.demo.otgusb.USB_PERMISSION";
     private UsbManager mUsbManager;
     private PendingIntent mPermissionIntent;
@@ -51,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     String filePath = "";
     String fileContent = "";
     StringBuilder str = new StringBuilder();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -65,9 +63,9 @@ public class MainActivity extends AppCompatActivity {
             btnSave.setEnabled(false);
         }
 
-        init();
-        test();
-        tvLoad.setText(str.toString());
+//        init();
+//        test();
+//        tvLoad.setText(str.toString());
 
 //        PendingIntent permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
 //        usbManager.requestPermission(device.getUsbDevice(), permissionIntent);
@@ -98,17 +96,26 @@ public class MainActivity extends AppCompatActivity {
 //        for (int i = 0; i < externalStorageVolumes.length; i++) {
 //            System.out.println("Volumes:" + externalStorageVolumes[i].getAbsolutePath());
 //        }
-/*
-        System.out.println(Arrays.toString(externalStorageVolumes));
+///*
+        FL.i(TAG, Arrays.toString(externalStorageVolumes));
         tvLoad.setText(Arrays.toString(externalStorageVolumes));
-        tvLoad.setText(getUsbPaths(getApplicationContext()).toString());
-*/
+//        tvLoad.setText(getUsbPaths(getApplicationContext()).toString());
+//*/
         btnSave.setOnClickListener(v -> {
             tvLoad.setText("");
             fileContent = etInput.getText().toString().trim();
             if (!fileContent.equals("")) {
-                File myExternalFile = new File(externalStorageVolumes[1] + "/" + filePath, fileName);
-                System.out.println("myExternalFile: " + myExternalFile);
+                String directory = externalStorageVolumes[1].getAbsolutePath()  + File.separator + filePath;
+                File myExternalFolder = new File(directory);
+                if (!myExternalFolder.exists()) {
+                    if(!myExternalFolder.mkdir()) {
+                        FL.e(TAG, "Directory wasn't created: " + directory);
+                        return;
+                    }
+                    FL.w(TAG, "Created directory: " + myExternalFolder.getAbsolutePath());
+                }
+                File myExternalFile = new File(directory, fileName);
+                FL.i(TAG, "File to be written: " + myExternalFile.getAbsolutePath());
                 FileOutputStream fos;
                 try {
                     fos = new FileOutputStream(myExternalFile);
@@ -125,8 +132,9 @@ public class MainActivity extends AppCompatActivity {
 
         btnLoad.setOnClickListener(v -> {
             FileReader fr;
-//            System.out.println("Dir: " + getExternalFilesDir(filePath).toString());
-            File myExternalFile = new File(externalStorageVolumes[1] + "/" + filePath, fileName);
+            String myExternalFolder = externalStorageVolumes[1] + File.separator + filePath;
+            File myExternalFile = new File(myExternalFolder, fileName);
+            FL.i(TAG, "File to be read: " + myExternalFile.getAbsolutePath());
             StringBuilder stringBuilder = new StringBuilder();
             try {
                 fr = new FileReader(myExternalFile);
@@ -147,29 +155,10 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isExternalStorageAvailableForRW() {
         String externalStorageState = Environment.getExternalStorageState();
-        System.out.println("externalStorageState: " + externalStorageState);
+        FL.i(TAG, "externalStorageState: " + externalStorageState);
         return externalStorageState.equals(Environment.MEDIA_MOUNTED);
     }
-/*
-    public static List<String> getUsbPaths(Context cxt) {
-        List<String> usbPaths = new ArrayList<>();
-        try {
-            StorageManager srgMgr = (StorageManager) cxt.getSystemService(Context.STORAGE_SERVICE);
-            Class<StorageManager> srgMgrClass = StorageManager.class;
-            String[] paths = (String[]) srgMgrClass.getMethod("getVolumePaths").invoke(srgMgr);
-            if (paths != null) {
-                for (String path : paths) {
-                    Object volumeState = srgMgrClass.getMethod("getVolumeState", String.class).invoke(srgMgr, path);
-                    if (!path.contains("emulated") && Environment.MEDIA_MOUNTED.equals(volumeState))
-                        usbPaths.add(path);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return usbPaths;
-    }
-*/
+
     private BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             System.out.println("onReceive: " + intent);

@@ -31,10 +31,12 @@ android {
 dependencies {
 
     implementation 'androidx.appcompat:appcompat:1.3.0'
-    implementation 'com.google.android.material:material:1.2.0-alpha02'
+    implementation 'com.google.android.material:material:1.2.0-alpha02' // It's required to render correctly the layout
     implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
-    implementation 'me.jahnen:libaums:0.8.0'
+    implementation 'me.jahnen:libaums:0.8.0'                            // It's required to manage the communication with usb drive
+    // https://github.com/bosphere/Android-FileLogger#android-filelogger
+    implementation 'com.github.bosphere.android-filelogger:filelogger:1.0.7'    // It's required for the log
 }
