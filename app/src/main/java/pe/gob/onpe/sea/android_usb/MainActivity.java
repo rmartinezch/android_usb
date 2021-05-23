@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.os.Environment;
@@ -13,6 +14,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -22,6 +24,8 @@ import com.github.mjdev.libaums.fs.FileSystem;
 import com.github.mjdev.libaums.fs.UsbFile;
 import com.github.mjdev.libaums.fs.UsbFileStreamFactory;
 import com.github.mjdev.libaums.partition.Partition;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,6 +41,7 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final String ACTION_USB_PERMISSION = "com.demo.otgusb.USB_PERMISSION";
+    private final int REQUEST_PERMISSION_RW_USB = 100;
     private UsbManager mUsbManager;
     private PendingIntent mPermissionIntent;
 
@@ -50,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        FL.i(TAG, "onCreate");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         btnLoad = findViewById(R.id.btnLoad);
@@ -62,18 +68,59 @@ public class MainActivity extends AppCompatActivity {
             btnSave.setEnabled(false);
         }
 
+        String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
+        checkPermission(permissions, REQUEST_PERMISSION_RW_USB);
+
 //        init();
+//        FL.i(TAG, "after init");
 //        test();
+//        FL.i(TAG, "after test");
+//        FL.i(TAG, str.toString());
 //        tvLoad.setText(str.toString());
 
         // https://developer.android.com/training/data-storage/app-specific#java
         File[] externalStorageVolumes = ContextCompat.getExternalFilesDirs(getApplicationContext(), null);
         FL.i(TAG, Arrays.toString(externalStorageVolumes));
         tvLoad.setText(Arrays.toString(externalStorageVolumes));
+        String externalStorageVolume = externalStorageVolumes[1].getAbsolutePath();
 
-        btnSave.setOnClickListener(v -> writeSDCard(externalStorageVolumes[1].getAbsolutePath()));
+//        btnSave.setOnClickListener(v -> init());
+        btnSave.setOnClickListener(v -> writeSDCard(externalStorageVolume));
+        btnLoad.setOnClickListener(v -> readSDCard(externalStorageVolume));
+    }
 
-        btnLoad.setOnClickListener(v -> readSDCard(externalStorageVolumes[1].getAbsolutePath()));
+    // Function to check and request permission
+
+    /**
+     * https://www.geeksforgeeks.org/android-how-to-request-permissions-in-android-application/
+     * @param permission Array of strings which represents to the permissions for manage external storage
+     * @param requestCode It represents the code linked to the permissions request to verification
+     */
+    public void checkPermission(String[] permission, int requestCode)
+    {
+        // Checking if permission is not granted
+        if (    (ContextCompat.checkSelfPermission(MainActivity.this, permission[0]) == PackageManager.PERMISSION_DENIED) ||
+                (ContextCompat.checkSelfPermission(MainActivity.this, permission[1]) == PackageManager.PERMISSION_DENIED) ) {
+            requestPermissions(permission, requestCode);
+        }
+        else {
+            FL.i(TAG, "Permission already granted: " + Arrays.toString(permission));
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull @NotNull String[] permissions, @NonNull @NotNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        FL.i(TAG, "requestCode: " + requestCode + ", permissions: " + Arrays.toString(permissions) + ", grantResults: " + Arrays.toString(grantResults));
+        if (requestCode == REQUEST_PERMISSION_RW_USB) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                FL.i(TAG, "Read/Write usb permission granted...");
+            } else {
+                FL.w(TAG, "Read/Write usb permission denied...");
+            }
+        } else {
+            FL.w(TAG, "Do nothing");
+        }
     }
 
     private void writeSDCard(String externalStorageVolume) {
@@ -175,8 +222,7 @@ public class MainActivity extends AppCompatActivity {
         registerReceiver(mUsbReceiver, intentFilter);
 
         //Read and write permissions
-        requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.READ_EXTERNAL_STORAGE}, 111);
+//        requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE}, 111);
     }
 
     private void test() {

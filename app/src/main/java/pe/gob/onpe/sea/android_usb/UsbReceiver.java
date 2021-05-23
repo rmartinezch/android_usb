@@ -13,6 +13,7 @@ public class UsbReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        FL.i(TAG, "onReceive");
         String action = intent.getAction();
         if (action == null)
             return;
