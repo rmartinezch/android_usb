@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">android_usb</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_load">Load</string>
+    <string name="et_hint">Escriba aquí para guardarlo en el SD</string>
+    <string name="message_data_saved">Información guardada en el SD</string>
+    <string name="message_data_error">La caja de texto debe contener información</string>
+
 </resources>
