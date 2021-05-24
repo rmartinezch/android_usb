@@ -2,10 +2,12 @@ package pe.gob.onpe.sea.android_usb;
 
 import android.Manifest;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.os.Environment;
@@ -35,15 +37,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
+import static android.hardware.usb.UsbManager.ACTION_USB_DEVICE_ATTACHED;
+import static android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    private static final String ACTION_USB_PERMISSION = "com.demo.otgusb.USB_PERMISSION";
+    private static final String ACTION_USB_PERMISSION = "pe.gob.onpe.sea.USB_PERMISSION";
     private final int REQUEST_PERMISSION_RW_USB = 100;
-    private UsbManager mUsbManager;
-    private PendingIntent mPermissionIntent;
+    private UsbManager usbManager;
+    private PendingIntent permissionIntent;
 
     Button btnSave, btnLoad;
     EditText etInput;
@@ -52,6 +59,35 @@ public class MainActivity extends AppCompatActivity {
     String filePath = "";
     String fileContent = "";
     StringBuilder str = new StringBuilder();
+
+    private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
+
+        public void onReceive(Context context, Intent intent) {
+            FL.i(TAG, "|-----onReceive");
+            String action = intent.getAction();
+            if (ACTION_USB_PERMISSION.equals(action)) {
+                synchronized (this) {
+                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        if(device != null){
+                            //call method to set up device communication
+                            FL.i(TAG, "Here the user already granted the permission");
+                            test();
+                        }
+                    }
+                    else {
+                        FL.i(TAG, "permission denied for device " + device);
+                    }
+                }
+            } else if (ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+                FL.i(TAG, "USB device plugin");
+            } else if (ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                FL.i(TAG, "USB device unplugged");
+            }
+            FL.i(TAG, "onReceive-----|");
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,12 +107,8 @@ public class MainActivity extends AppCompatActivity {
         String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
         checkPermission(permissions, REQUEST_PERMISSION_RW_USB);
 
-//        init();
-//        FL.i(TAG, "after init");
-//        test();
-//        FL.i(TAG, "after test");
-//        FL.i(TAG, str.toString());
-//        tvLoad.setText(str.toString());
+        registerBroadcastReceiver(mUsbReceiver);
+        FL.i(TAG, "after init");
 
         // https://developer.android.com/training/data-storage/app-specific#java
         File[] externalStorageVolumes = ContextCompat.getExternalFilesDirs(getApplicationContext(), null);
@@ -84,20 +116,24 @@ public class MainActivity extends AppCompatActivity {
         tvLoad.setText(Arrays.toString(externalStorageVolumes));
         String externalStorageVolume = externalStorageVolumes[1].getAbsolutePath();
 
-//        btnSave.setOnClickListener(v -> init());
-        btnSave.setOnClickListener(v -> writeSDCard(externalStorageVolume));
+        btnSave.setOnClickListener(v -> manageUsbDevice());
+//        btnSave.setOnClickListener(v -> writeSDCard(externalStorageVolume));
         btnLoad.setOnClickListener(v -> readSDCard(externalStorageVolume));
     }
 
-    // Function to check and request permission
+    private boolean isExternalStorageAvailableForRW() {
+        String externalStorageState = Environment.getExternalStorageState();
+        FL.i(TAG, "externalStorageState: " + externalStorageState);
+        return externalStorageState.equals(Environment.MEDIA_MOUNTED);
+    }
 
     /**
+     * Function to check and request permission
      * https://www.geeksforgeeks.org/android-how-to-request-permissions-in-android-application/
      * @param permission Array of strings which represents to the permissions for manage external storage
      * @param requestCode It represents the code linked to the permissions request to verification
      */
-    public void checkPermission(String[] permission, int requestCode)
-    {
+    public void checkPermission(String[] permission, int requestCode) {
         // Checking if permission is not granted
         if (    (ContextCompat.checkSelfPermission(MainActivity.this, permission[0]) == PackageManager.PERMISSION_DENIED) ||
                 (ContextCompat.checkSelfPermission(MainActivity.this, permission[1]) == PackageManager.PERMISSION_DENIED) ) {
@@ -174,55 +210,64 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private boolean isExternalStorageAvailableForRW() {
-        String externalStorageState = Environment.getExternalStorageState();
-        FL.i(TAG, "externalStorageState: " + externalStorageState);
-        return externalStorageState.equals(Environment.MEDIA_MOUNTED);
+    private void manageUsbDevice() {
+        FL.i(TAG, "|-----manageUsbDevice");
+        UsbDevice[] devices = enumerateUsbDevices();
+        if (devices == null || devices.length == 0) {
+            FL.w(TAG, "No usb devices detected");
+            return;
+        }
+        // select which device we choose and request the permission to communicate
+        usbManager.requestPermission(devices[0], permissionIntent);
+        FL.i(TAG, "manageUsbDevice-----|");
     }
 
-    /*
-    private BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            System.out.println("onReceive: " + intent);
-            String action = intent.getAction();
-            if (action == null)
-                return;
-            switch (action) {
-                case ACTION_USB_PERMISSION://User Authorized Broadcast
-                    synchronized (this) {
-                        if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) { //Allow permission to apply
-                            test();
-                        } else {
-                            System.out.println("User is not authorized, access to USB device failed");
-                        }
-                    }
-                    break;
-                case UsbManager.ACTION_USB_DEVICE_ATTACHED://USB device plugged into the broadcast
-                    System.out.println("USB device plugin");
-                    break;
-                case UsbManager.ACTION_USB_DEVICE_DETACHED://USB device unplugs the broadcast
-                    System.out.println("USB device unplugged");
-                    break;
-            }
+    /**
+     * This function can be used before or after init function
+     * But this one must be used before of the App request permission to communicate with the usb device, which one is previously identified
+     * The device used here is the last one identified
+     */
+    private UsbDevice[] enumerateUsbDevices() {
+        UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
+        if (deviceList.size() == 0) { return null; }
+        UsbDevice[] devices = new UsbDevice[deviceList.size()];
+        Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
+        StringBuilder str = new StringBuilder();
+        int i = 0;
+        while(deviceIterator.hasNext()){
+            UsbDevice device = deviceIterator.next();
+            devices[i] = device;
+            String out =    "DeviceName: " + device.getDeviceName() + "\n" +
+                            "DeviceId: " + device.getDeviceId() + "\n" +
+                            "ManufacturerName: " + device.getManufacturerName() + "\n" +
+                            "ProductName: " + device.getProductName() + "\n" +
+                            "SerialNumber: " + device.getSerialNumber();
+            FL.i(TAG, out);
+            str.append(out).append("\n\n");
         }
-    };
-//    */
+        tvLoad.setText(str.toString());
+        return devices;
+    }
 
-    private void init() {
+    /**
+     * To register the intents or events in the broadcast receiver
+     * @param usbReceiver This class manage the events around the usb device like plugged, unplugged or even, detect the granted permission to communicate
+     */
+    private void registerBroadcastReceiver(BroadcastReceiver usbReceiver) {
+        FL.i(TAG, "|-----init");
         //USB Manager
-        UsbReceiver mUsbReceiver = new UsbReceiver();
-        mUsbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
+        usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+
+        permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
 
         // Register the broadcast, monitor USB plug and pull out
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         intentFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         intentFilter.addAction(ACTION_USB_PERMISSION);
-        registerReceiver(mUsbReceiver, intentFilter);
-
-        //Read and write permissions
-//        requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE}, 111);
+        registerReceiver(usbReceiver, intentFilter);
+        FL.i(TAG, "init-----|");
     }
 
     private void test() {
@@ -230,8 +275,8 @@ public class MainActivity extends AppCompatActivity {
             UsbMassStorageDevice[] storageDevices = UsbMassStorageDevice.getMassStorageDevices(this);
             for (UsbMassStorageDevice storageDevice : storageDevices) { //The general mobile phone has only one USB device
                 // Apply for USB permissions
-                if (!mUsbManager.hasPermission(storageDevice.getUsbDevice())) {
-                    mUsbManager.requestPermission(storageDevice.getUsbDevice(), mPermissionIntent);
+                if (!usbManager.hasPermission(storageDevice.getUsbDevice())) {
+                    usbManager.requestPermission(storageDevice.getUsbDevice(), permissionIntent);
                     break;
                 }
                 // Initialize
@@ -287,6 +332,7 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             str.append("Error: ").append(e);
         }
+        tvLoad.setText(str.toString());
     }
 
     public static String fSize(long sizeInByte) {

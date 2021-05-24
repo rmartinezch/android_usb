@@ -9,7 +9,7 @@ import com.bosphere.filelogger.FL;
 
 public class UsbReceiver extends BroadcastReceiver {
     private static final String TAG = UsbReceiver.class.getSimpleName();
-    private static final String ACTION_USB_PERMISSION = "com.demo.otgusb.USB_PERMISSION";
+    private static final String ACTION_USB_PERMISSION = "pe.gob.onpe.sea.USB_PERMISSION";
 
     @Override
     public void onReceive(Context context, Intent intent) {
