@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
@@ -92,12 +93,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         FL.i(TAG, "onCreate");
+        FL.i(TAG, "App version: " + getAppVersion());
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         btnLoad = findViewById(R.id.btnLoad);
         btnSave = findViewById(R.id.btnSave);
         etInput = findViewById(R.id.etInput);
         tvLoad = findViewById(R.id.tvLoad);
+        TextView tvVersion = findViewById(R.id.tvVersion);
+        tvVersion.setText(getAppVersion());
         fileName = "myFile.txt";
         filePath = "MyFileDir";
         if (!isExternalStorageAvailableForRW()) {
@@ -114,11 +118,18 @@ public class MainActivity extends AppCompatActivity {
         File[] externalStorageVolumes = ContextCompat.getExternalFilesDirs(getApplicationContext(), null);
         FL.i(TAG, Arrays.toString(externalStorageVolumes));
         tvLoad.setText(Arrays.toString(externalStorageVolumes));
-        String externalStorageVolume = externalStorageVolumes[1].getAbsolutePath();
+        // Memory of the smartphone by default and could have a sd card memory
+        String externalStorageVolume;
+        if (externalStorageVolumes.length == 2) {
+            externalStorageVolume = externalStorageVolumes[1].getAbsolutePath();
+        } else {
+            externalStorageVolume = externalStorageVolumes[0].getAbsolutePath();
+        }
 
         btnSave.setOnClickListener(v -> manageUsbDevice());
 //        btnSave.setOnClickListener(v -> writeSDCard(externalStorageVolume));
-        btnLoad.setOnClickListener(v -> readSDCard(externalStorageVolume));
+        String finalExternalStorageVolume = externalStorageVolume;
+        btnLoad.setOnClickListener(v -> readSDCard(finalExternalStorageVolume));
     }
 
     private boolean isExternalStorageAvailableForRW() {
@@ -346,4 +357,19 @@ public class MainActivity extends AppCompatActivity {
             return String.format(Locale.CANADA, "%.2fGB", sizeInByte / 1024. / 1024 / 1024);
     }
 
+    /**
+     * Get the App version from the current App
+     * @return App version in string format
+     */
+    private String getAppVersion() {
+        String version = "0.0.0";
+        try {
+            PackageInfo pInfo = getBaseContext().getPackageManager().getPackageInfo(getBaseContext().getPackageName(), 0);
+            version = pInfo.versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+            FL.e(TAG, "Can't get app version: " + e.getLocalizedMessage());
+            e.printStackTrace();
+        }
+        return version;
+    }
 }

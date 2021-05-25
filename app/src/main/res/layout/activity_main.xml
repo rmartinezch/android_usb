@@ -8,6 +8,11 @@
     android:padding="20dp"
     tools:context=".MainActivity">
 
+    <TextView
+        android:id="@+id/tvVersion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        />
     <EditText
         android:id="@+id/etInput"
         android:layout_width="match_parent"
