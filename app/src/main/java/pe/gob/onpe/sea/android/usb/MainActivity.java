@@ -1,4 +1,4 @@
-package pe.gob.onpe.sea.android_usb;
+package pe.gob.onpe.sea.android.usb;
 
 import android.Manifest;
 import android.app.PendingIntent;
@@ -42,6 +42,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+
+import pe.gob.onpe.sea.android.R;
 
 import static android.hardware.usb.UsbManager.ACTION_USB_DEVICE_ATTACHED;
 import static android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED;

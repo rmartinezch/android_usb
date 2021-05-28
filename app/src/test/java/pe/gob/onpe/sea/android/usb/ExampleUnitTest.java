@@ -1,4 +1,4 @@
-package pe.gob.onpe.sea.android_usb;
+package pe.gob.onpe.sea.android.usb;
 
 import org.junit.Test;
 

@@ -4,7 +4,7 @@ plugins {
 //https://stackoverflow.com/questions/13939384/what-is-the-best-practice-to-manage-the-version-of-my-android-app
 def versionMajor = 1
 def versionMinor = 0
-def versionPatch = 2
+def versionPatch = 3
 def versionBuild = 0 // bump for dogfood builds, public betas, etc.
 
 android {
