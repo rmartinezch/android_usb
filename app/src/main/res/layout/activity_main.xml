@@ -8,10 +8,25 @@
     android:padding="20dp"
     tools:context=".usb.MainActivity">
 
+    <EditText
+        android:id="@+id/etVolume"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:inputType="text"
+        android:gravity="center"
+        android:hint="@string/et_volume_hint"
+        android:importantForAutofill="no"
+        android:text="@string/et_volume_text"
+        tools:ignore="LabelFor"
+        />
+
     <TextView
         android:id="@+id/tvVersion"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textAlignment="center"
+        android:layout_marginTop="10dp"
         />
     <EditText
         android:id="@+id/etInput"
@@ -20,8 +35,9 @@
         android:background="@null"
         android:inputType="text"
         android:gravity="center"
-        android:hint="@string/et_hint"
+        android:hint="@string/et_input_hint"
         android:importantForAutofill="no"
+        android:layout_marginTop="10dp"
         tools:ignore="LabelFor"
         />
 
@@ -50,9 +66,20 @@
             style="?android:attr/buttonBarButtonStyle" />
 
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btnExternal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/btn_usb"
+        android:layout_marginTop="10dp"
+        />
+
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        >
         <TextView
             android:id="@+id/tvLoad"
             android:text=""

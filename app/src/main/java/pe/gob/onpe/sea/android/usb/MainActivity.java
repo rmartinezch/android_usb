@@ -1,6 +1,5 @@
 package pe.gob.onpe.sea.android.usb;
 
-import android.Manifest;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -10,6 +9,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.widget.Button;
@@ -51,17 +51,15 @@ import static android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final String ACTION_USB_PERMISSION = "pe.gob.onpe.sea.USB_PERMISSION";
-    private final int REQUEST_PERMISSION_RW_USB = 100;
     private UsbManager usbManager;
     private PendingIntent permissionIntent;
 
-    Button btnSave, btnLoad;
-    EditText etInput;
-    TextView tvLoad;
-    String fileName = "";
-    String filePath = "";
-    String fileContent = "";
-    StringBuilder str = new StringBuilder();
+    private EditText etInput;
+    private EditText etVolume;
+    private TextView tvLoad;
+    private String fileName = "";
+//    private String filePath = "";
+    private final StringBuilder str = new StringBuilder();
 
     private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 
@@ -96,42 +94,39 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         FL.i(TAG, "onCreate");
         FL.i(TAG, "App version: " + getAppVersion());
+        FL.i(TAG, "Equipment info: " + getInfoFromEquipment());
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        btnLoad = findViewById(R.id.btnLoad);
-        btnSave = findViewById(R.id.btnSave);
+        Button btnLoad = findViewById(R.id.btnLoad);
+        Button btnSave = findViewById(R.id.btnSave);
+        Button btnExternal = findViewById(R.id.btnExternal);
         etInput = findViewById(R.id.etInput);
+        etVolume = findViewById(R.id.etVolume);
         tvLoad = findViewById(R.id.tvLoad);
         TextView tvVersion = findViewById(R.id.tvVersion);
         tvVersion.setText(getAppVersion());
         fileName = "myFile.txt";
-        filePath = "MyFileDir";
+//        filePath = "MyFileDir";
         if (!isExternalStorageAvailableForRW()) {
             btnSave.setEnabled(false);
         }
 
-        String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
-        checkPermission(permissions, REQUEST_PERMISSION_RW_USB);
+//        String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
+//        checkPermission(permissions, REQUEST_PERMISSION_RW_USB);
 
         registerBroadcastReceiver(mUsbReceiver);
         FL.i(TAG, "after init");
 
-        // https://developer.android.com/training/data-storage/app-specific#java
-        File[] externalStorageVolumes = ContextCompat.getExternalFilesDirs(getApplicationContext(), null);
-        FL.i(TAG, Arrays.toString(externalStorageVolumes));
-        tvLoad.setText(Arrays.toString(externalStorageVolumes));
-        // Memory of the smartphone by default and could have a sd card memory
-        String externalStorageVolume;
-        if (externalStorageVolumes.length == 2) {
-            externalStorageVolume = externalStorageVolumes[1].getAbsolutePath();
-        } else {
-            externalStorageVolume = externalStorageVolumes[0].getAbsolutePath();
-        }
+//        int volume = Integer.valueOf(etVolume.getText().toString());
+        String externalStorageVolume = getExternalVolume(Integer.parseInt(etVolume.getText().toString()));
+        FL.i(TAG, "externalStorageVolume: " + externalStorageVolume);
 
-        btnSave.setOnClickListener(v -> manageUsbDevice());
-//        btnSave.setOnClickListener(v -> writeSDCard(externalStorageVolume));
-        String finalExternalStorageVolume = externalStorageVolume;
-        btnLoad.setOnClickListener(v -> readSDCard(finalExternalStorageVolume));
+        btnExternal.setOnClickListener(v -> manageUsbDevice());
+        btnSave.setOnClickListener(v -> saveInSDCard(Integer.parseInt(etVolume.getText().toString())));
+        btnLoad.setOnClickListener(v -> loadFromSDCard(Integer.parseInt(etVolume.getText().toString())));
+    }
+    private int getVolumeIndex() {
+        return Integer.parseInt(etVolume.getText().toString());
     }
 
     private boolean isExternalStorageAvailableForRW() {
@@ -142,7 +137,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Function to check and request permission
-     * https://www.geeksforgeeks.org/android-how-to-request-permissions-in-android-application/
      * @param permission Array of strings which represents to the permissions for manage external storage
      * @param requestCode It represents the code linked to the permissions request to verification
      */
@@ -157,10 +151,30 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * https://developer.android.com/training/data-storage/app-specific#java
+     * @param i index of external volume list
+     * @return path of the volume at the selected index
+     */
+    private String getExternalVolume(int i) {
+        File[] externalStorageVolumes = ContextCompat.getExternalFilesDirs(getApplicationContext(), null);
+        StringBuilder list = new StringBuilder();
+        for(int k = 0; k < externalStorageVolumes.length; k++) {
+            list.append(k).append(": ").append(externalStorageVolumes[k].getAbsolutePath()).append("\n");
+        }
+        FL.i(TAG, list.toString());
+        tvLoad.setText(list.toString());
+        if (i < externalStorageVolumes.length) {
+            return externalStorageVolumes[i].getAbsolutePath() + File.separator + Environment.DIRECTORY_DOCUMENTS;
+        }
+        return "";
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull @NotNull String[] permissions, @NonNull @NotNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         FL.i(TAG, "requestCode: " + requestCode + ", permissions: " + Arrays.toString(permissions) + ", grantResults: " + Arrays.toString(grantResults));
+        int REQUEST_PERMISSION_RW_USB = 100;
         if (requestCode == REQUEST_PERMISSION_RW_USB) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 FL.i(TAG, "Read/Write usb permission granted...");
@@ -172,38 +186,47 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void writeSDCard(String externalStorageVolume) {
-        tvLoad.setText("");
-        fileContent = etInput.getText().toString().trim();
-        if (!fileContent.equals("")) {
-            String directory = externalStorageVolume + File.separator + filePath;
-            File myExternalFolder = new File(directory);
-            if (!myExternalFolder.exists()) {
-                if(!myExternalFolder.mkdir()) {
-                    FL.e(TAG, "Directory wasn't created: " + directory);
-                    return;
-                }
-                FL.w(TAG, "Created directory: " + myExternalFolder.getAbsolutePath());
-            }
-            File myExternalFile = new File(directory, fileName);
-            FL.i(TAG, "File to be written: " + myExternalFile.getAbsolutePath());
-            FileOutputStream fos;
-            try {
-                fos = new FileOutputStream(myExternalFile);
-                fos.write(fileContent.getBytes());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            etInput.setText("");
-            Toast.makeText(MainActivity.this, getString(R.string.message_data_saved), Toast.LENGTH_LONG).show();
-        } else {
+    private void saveInSDCard(int i) {
+        String fileContent = etInput.getText().toString().trim();
+
+        String externalVolume = getExternalVolume(i);
+        if (fileContent.equals("")) {
             Toast.makeText(MainActivity.this, getString(R.string.message_data_error), Toast.LENGTH_LONG).show();
+            FL.e(TAG, "EditText object is empty");
+            return;
         }
+        File myExternalFolder = new File(externalVolume);
+        if (!myExternalFolder.exists()) {
+            FL.w(TAG, "External folder doesn't exists: " + myExternalFolder.getAbsolutePath());
+            if(!myExternalFolder.mkdir()) {
+                FL.e(TAG, "External folder wasn't created: " + myExternalFolder.getAbsolutePath());
+                return;
+            }
+            FL.i(TAG, "Created folder: " + myExternalFolder.getAbsolutePath());
+        }
+        File myExternalFile = new File(myExternalFolder, fileName);
+        FL.i(TAG, "File to be written: " + myExternalFile.getAbsolutePath());
+        FileOutputStream fos;
+        try {
+            fos = new FileOutputStream(myExternalFile);
+            fos.write(fileContent.getBytes());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        tvLoad.setText("");
+        etInput.setText("");
+
+        Toast.makeText(MainActivity.this, getString(R.string.message_data_saved), Toast.LENGTH_LONG).show();
     }
 
-    private void readSDCard(String externalStorageVolume) {
+    private void loadFromSDCard(int i) {
+        String externalStorageVolume = getExternalVolume(i);
+        File myExternalFolder = new File(externalStorageVolume);
+        if (!myExternalFolder.exists()) {
+            FL.e(TAG, "Folder doesn't exists: " + myExternalFolder.getAbsolutePath());
+        }
         FileReader fr;
-        String myExternalFolder = externalStorageVolume + File.separator + filePath;
         File myExternalFile = new File(myExternalFolder, fileName);
         FL.i(TAG, "File to be read: " + myExternalFile.getAbsolutePath());
         StringBuilder stringBuilder = new StringBuilder();
@@ -218,13 +241,13 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            String fileContents = "El archivo contiene:\n" + stringBuilder.toString();
+            String fileContents = "File contents:\n" + stringBuilder.toString();
             tvLoad.setText(fileContents);
         }
     }
 
     private void manageUsbDevice() {
-        FL.i(TAG, "|-----manageUsbDevice");
+        FL.i(TAG, "Begin manageUsbDevice");
         UsbDevice[] devices = enumerateUsbDevices();
         if (devices == null || devices.length == 0) {
             FL.w(TAG, "No usb devices detected");
@@ -232,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
         }
         // select which device we choose and request the permission to communicate
         usbManager.requestPermission(devices[0], permissionIntent);
-        FL.i(TAG, "manageUsbDevice-----|");
+        FL.i(TAG, "End manageUsbDevice");
     }
 
     /**
@@ -241,9 +264,13 @@ public class MainActivity extends AppCompatActivity {
      * The device used here is the last one identified
      */
     private UsbDevice[] enumerateUsbDevices() {
+        FL.i(TAG, "Begin enumerateUsbDevices");
         UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
-        if (deviceList.size() == 0) { return null; }
+        if (deviceList.size() == 0) {
+            FL.e(TAG, "Device list zero");
+            return null;
+        }
         UsbDevice[] devices = new UsbDevice[deviceList.size()];
         Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
         StringBuilder str = new StringBuilder();
@@ -252,14 +279,15 @@ public class MainActivity extends AppCompatActivity {
             UsbDevice device = deviceIterator.next();
             devices[i] = device;
             String out =    "DeviceName: " + device.getDeviceName() + "\n" +
-                            "DeviceId: " + device.getDeviceId() + "\n" +
-                            "ManufacturerName: " + device.getManufacturerName() + "\n" +
-                            "ProductName: " + device.getProductName() + "\n" +
-                            "SerialNumber: " + device.getSerialNumber();
+                    "DeviceId: " + device.getDeviceId() + "\n" +
+                    "ManufacturerName: " + device.getManufacturerName() + "\n" +
+                    "ProductName: " + device.getProductName() + "\n" +
+                    "SerialNumber: " + device.getSerialNumber();
             FL.i(TAG, out);
             str.append(out).append("\n\n");
         }
         tvLoad.setText(str.toString());
+        FL.i(TAG, "End enumerateUsbDevices");
         return devices;
     }
 
@@ -290,6 +318,7 @@ public class MainActivity extends AppCompatActivity {
                 // Apply for USB permissions
                 if (!usbManager.hasPermission(storageDevice.getUsbDevice())) {
                     usbManager.requestPermission(storageDevice.getUsbDevice(), permissionIntent);
+                    FL.e(TAG, "Not permission for usb manage");
                     break;
                 }
                 // Initialize
@@ -302,49 +331,50 @@ public class MainActivity extends AppCompatActivity {
                 }
                 // use only the first partition
                 FileSystem fileSystem = partitions.get(0).getFileSystem();
-                str.append("Volume Label: ").append(fileSystem.getVolumeLabel());
-                str.append("Capacity: ").append(fSize(fileSystem.getCapacity()));
-                str.append("Occupied Space: ").append(fSize(fileSystem.getOccupiedSpace()));
-                str.append("Free Space: ").append(fSize(fileSystem.getFreeSpace()));
-                str.append("Chunk size: ").append(fSize(fileSystem.getChunkSize()));
+                str.append("Volume Label: ").append(fileSystem.getVolumeLabel()).append("\n");
+                str.append("Capacity: ").append(fSize(fileSystem.getCapacity())).append("\n");
+                str.append("Occupied Space: ").append(fSize(fileSystem.getOccupiedSpace())).append("\n");
+                str.append("Free Space: ").append(fSize(fileSystem.getFreeSpace())).append("\n");
+                str.append("Chunk size: ").append(fSize(fileSystem.getChunkSize())).append("\n");
 
                 UsbFile root = fileSystem.getRootDirectory();
+                str.append("root directory: ").append(root.getAbsolutePath()).append("\n");
                 UsbFile[] files = root.listFiles();
                 for (UsbFile file : files)
-                    str.append("file: ").append(file.getName());
+                    str.append("file: ").append(file.getName()).append("\n");
 
                 // create a new file
-                UsbFile newFile = root.createFile("hello_" + System.currentTimeMillis() + ".txt");
-                str.append("New file: ").append(newFile.getName());
+                UsbFile newFile = root.createFile("usb_file_" + System.currentTimeMillis() + ".txt");
+                str.append("New file: ").append(newFile.getAbsolutePath()).append("\n");
 
                 // write the file
                 // OutputStream os = new UsbFileOutputStream(newFile);
                 OutputStream os = UsbFileStreamFactory.createBufferedOutputStream(newFile, fileSystem);
                 os.write(("hi_" + System.currentTimeMillis()).getBytes());
                 os.close();
-                str.append("write file: ").append(newFile.getName());
+                str.append("Written file: ").append(newFile.getAbsolutePath()).append("\n");
 
-                // read the file
-                // InputStream is = new UsbFileInputStream(newFile);
+                // read the written file recently
                 InputStream is = UsbFileStreamFactory.createBufferedInputStream(newFile, fileSystem);
                 byte[] buffer = new byte[fileSystem.getChunkSize()];
+
+                // Create a new file into the internal storage location, then, writing the content of the read file recently in this new file
+                File sdFile = new File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), newFile.getName());
+                str.append("Created file from read file:\n").append(sdFile.getAbsoluteFile().getPath()).append("\n");
+                FileOutputStream sdOut = new FileOutputStream(sdFile);
+
                 int len;
-//                File sdFile = new File("/sdcard/111");
-                File sdFile = new File(Environment.getExternalStorageDirectory().getPath() + "/111");
-//                sdFile.mkdirs();
-                FileOutputStream sdOut = new FileOutputStream(sdFile.getAbsolutePath() + "/" + newFile.getName());
                 while ((len = is.read(buffer)) != -1) {
                     sdOut.write(buffer, 0, len);
                 }
                 is.close();
                 sdOut.close();
-                str.append("Read file: ").append(newFile.getName()).append(" -> copy to /sdcard/111/");
-
                 storageDevice.close();
             }
         } catch (Exception e) {
             str.append("Error: ").append(e);
         }
+        FL.i(TAG, "End of test:\n" + str.toString());
         tvLoad.setText(str.toString());
     }
 
@@ -374,4 +404,28 @@ public class MainActivity extends AppCompatActivity {
         }
         return version;
     }
+
+    /**
+     * Get the info about the equipment characteristics and OS
+     * @return Info equipment like a string
+     */
+    private String getInfoFromEquipment() {
+        String info = "";
+        info += "VERSION CODE {" + Build.VERSION_CODES.class.getFields()[android.os.Build.VERSION.SDK_INT].getName() + "} ";
+        info += "VERSION.RELEASE {" + Build.VERSION.RELEASE + "} ";
+        info += "VERSION.SDK {" + Build.VERSION.SDK_INT + "} ";
+        info += "VERSION.INCREMENTAL {" + Build.VERSION.INCREMENTAL + "} ";
+        info += "VERSION.CODENAME {" + Build.VERSION.CODENAME + "} ";
+        info += "BRAND {" + Build.BRAND + "} ";
+        info += "MANUFACTURER {" + Build.MANUFACTURER + "} ";
+        info += "BOARD {" + Build.BOARD + "} ";
+        info += "MODEL {" + Build.MODEL + "} ";
+        info += "HARDWARE {" + Build.HARDWARE + "} ";
+        info += "PRODUCT {" + Build.PRODUCT + "} ";
+        info += "DEVICE {" + Build.DEVICE + "} ";
+        info += "HOST {" + Build.HOST + "} ";
+        info += "ID {" + Build.ID + "} ";
+        return info;
+    }
+
 }
