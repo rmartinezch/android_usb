@@ -58,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
     private EditText etVolume;
     private TextView tvLoad;
     private String fileName = "";
-//    private String filePath = "";
     private final StringBuilder str = new StringBuilder();
 
     private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
@@ -106,7 +105,6 @@ public class MainActivity extends AppCompatActivity {
         TextView tvVersion = findViewById(R.id.tvVersion);
         tvVersion.setText(getAppVersion());
         fileName = "myFile.txt";
-//        filePath = "MyFileDir";
         if (!isExternalStorageAvailableForRW()) {
             btnSave.setEnabled(false);
         }
@@ -117,7 +115,6 @@ public class MainActivity extends AppCompatActivity {
         registerBroadcastReceiver(mUsbReceiver);
         FL.i(TAG, "after init");
 
-//        int volume = Integer.valueOf(etVolume.getText().toString());
         String externalStorageVolume = getExternalVolume(Integer.parseInt(etVolume.getText().toString()));
         FL.i(TAG, "externalStorageVolume: " + externalStorageVolume);
 
@@ -162,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
         for(int k = 0; k < externalStorageVolumes.length; k++) {
             list.append(k).append(": ").append(externalStorageVolumes[k].getAbsolutePath()).append("\n");
         }
-        FL.i(TAG, list.toString());
+        FL.i(TAG, "Volumes:\n" + list.toString());
         tvLoad.setText(list.toString());
         if (i < externalStorageVolumes.length) {
             return externalStorageVolumes[i].getAbsolutePath() + File.separator + Environment.DIRECTORY_DOCUMENTS;
@@ -225,6 +222,7 @@ public class MainActivity extends AppCompatActivity {
         File myExternalFolder = new File(externalStorageVolume);
         if (!myExternalFolder.exists()) {
             FL.e(TAG, "Folder doesn't exists: " + myExternalFolder.getAbsolutePath());
+            return;
         }
         FileReader fr;
         File myExternalFile = new File(myExternalFolder, fileName);
@@ -247,24 +245,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void manageUsbDevice() {
-        FL.i(TAG, "Begin manageUsbDevice");
+        FL.i(TAG, "manageUsbDevice");
         UsbDevice[] devices = enumerateUsbDevices();
         if (devices == null || devices.length == 0) {
-            FL.w(TAG, "No usb devices detected");
+            FL.w(TAG, "No usb devices detected, permission request wasn't sent");
             return;
         }
         // select which device we choose and request the permission to communicate
+        FL.i(TAG, "At least, one usb device detected at least");
         usbManager.requestPermission(devices[0], permissionIntent);
-        FL.i(TAG, "End manageUsbDevice");
+        FL.i(TAG, "Permission request is sent, end manageUsbDevice");
     }
 
     /**
-     * This function can be used before or after init function
-     * But this one must be used before of the App request permission to communicate with the usb device, which one is previously identified
-     * The device used here is the last one identified
+     * https://developer.android.com/guide/topics/connectivity/usb/host
+     * This one must be used before of the permission request will be sent
+     * The device used here is the last one identified inside the loop
      */
     private UsbDevice[] enumerateUsbDevices() {
-        FL.i(TAG, "Begin enumerateUsbDevices");
+        FL.i(TAG, "enumerateUsbDevices");
         UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
         if (deviceList.size() == 0) {
@@ -277,14 +276,17 @@ public class MainActivity extends AppCompatActivity {
         int i = 0;
         while(deviceIterator.hasNext()){
             UsbDevice device = deviceIterator.next();
-            devices[i] = device;
-            String out =    "DeviceName: " + device.getDeviceName() + "\n" +
-                    "DeviceId: " + device.getDeviceId() + "\n" +
-                    "ManufacturerName: " + device.getManufacturerName() + "\n" +
-                    "ProductName: " + device.getProductName() + "\n" +
-                    "SerialNumber: " + device.getSerialNumber();
-            FL.i(TAG, out);
-            str.append(out).append("\n\n");
+            devices[i++] = device;
+            String out =    "\nDeviceName: " + device.getDeviceName() +
+                            "\nDeviceId: " + device.getDeviceId() +
+                            "\nManufacturerName: " + device.getManufacturerName() +
+                            "\nProductName: " + device.getProductName() +
+                            "\nProductID: " + device.getProductId() +
+                            "\nVendorID: " + device.getVendorId() +
+                            "\nVersion: " + device.getVersion() +
+                            "\nSerialNumber: " + device.getSerialNumber();
+            FL.i(TAG, "Device[" + i + "]:" + out);
+            str.append(out);
         }
         tvLoad.setText(str.toString());
         FL.i(TAG, "End enumerateUsbDevices");
@@ -296,7 +298,7 @@ public class MainActivity extends AppCompatActivity {
      * @param usbReceiver This class manage the events around the usb device like plugged, unplugged or even, detect the granted permission to communicate
      */
     private void registerBroadcastReceiver(BroadcastReceiver usbReceiver) {
-        FL.i(TAG, "|-----init");
+        FL.i(TAG, "Begin registerBroadcastReceiver");
         //USB Manager
         usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
 
@@ -308,7 +310,7 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         intentFilter.addAction(ACTION_USB_PERMISSION);
         registerReceiver(usbReceiver, intentFilter);
-        FL.i(TAG, "init-----|");
+        FL.i(TAG, "End registerBroadcastReceiver");
     }
 
     private void test() {
