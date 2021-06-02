@@ -6,7 +6,8 @@
     <string name="et_input_hint">Escriba aquí para guardarlo en el SD</string>
     <string name="et_volume_hint">Escriba aquí el índice del volumen</string>
     <string name="et_volume_text">0</string>
-    <string name="message_data_saved">Información guardada en el SD</string>
-    <string name="message_data_error">La caja de texto debe contener información</string>
+    <string name="message_data_saved">Información guardada en el volumen seleccionado</string>
+    <string name="message_data_error">El valor del índice debe ser mayor o igual a cero, y la caja de texto debe contener información</string>
+    <string name="message_index_error">El valor del índice excede a los volúmenes detectados</string>
 
 </resources>

@@ -51,6 +51,8 @@ import static android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final String ACTION_USB_PERMISSION = "pe.gob.onpe.sea.USB_PERMISSION";
+    private static final int WRONG_VOLUME_INDEX = -1;
+
     private UsbManager usbManager;
     private PendingIntent permissionIntent;
 
@@ -58,12 +60,17 @@ public class MainActivity extends AppCompatActivity {
     private EditText etVolume;
     private TextView tvLoad;
     private String fileName = "";
+    private String fileContent = "";
+    private int index = 0;
     private final StringBuilder str = new StringBuilder();
 
+    /**
+     * If the permission is granted, it detects the events related to the usb drive
+     */
     private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 
         public void onReceive(Context context, Intent intent) {
-            FL.i(TAG, "|-----onReceive");
+            FL.i(TAG, "BroadcastReceiver");
             String action = intent.getAction();
             if (ACTION_USB_PERMISSION.equals(action)) {
                 synchronized (this) {
@@ -72,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if(device != null){
                             //call method to set up device communication
-                            FL.i(TAG, "Here the user already granted the permission");
+                            FL.i(TAG, "The user granted the permission");
                             test();
                         }
                     }
@@ -84,8 +91,9 @@ public class MainActivity extends AppCompatActivity {
                 FL.i(TAG, "USB device plugin");
             } else if (ACTION_USB_DEVICE_DETACHED.equals(action)) {
                 FL.i(TAG, "USB device unplugged");
+            } else {
+                FL.i(TAG, "ACTION_USB_PERMISSION is not equal to action");
             }
-            FL.i(TAG, "onReceive-----|");
         }
     };
 
@@ -113,22 +121,46 @@ public class MainActivity extends AppCompatActivity {
 //        checkPermission(permissions, REQUEST_PERMISSION_RW_USB);
 
         registerBroadcastReceiver(mUsbReceiver);
-        FL.i(TAG, "after init");
 
         String externalStorageVolume = getExternalVolume(Integer.parseInt(etVolume.getText().toString()));
-        FL.i(TAG, "externalStorageVolume: " + externalStorageVolume);
+        FL.i(TAG, "Default selected volume: " + externalStorageVolume);
 
         btnExternal.setOnClickListener(v -> manageUsbDevice());
-        btnSave.setOnClickListener(v -> saveInSDCard(Integer.parseInt(etVolume.getText().toString())));
-        btnLoad.setOnClickListener(v -> loadFromSDCard(Integer.parseInt(etVolume.getText().toString())));
-    }
-    private int getVolumeIndex() {
-        return Integer.parseInt(etVolume.getText().toString());
+        btnSave.setOnClickListener(v -> saveInSDCard());
+        btnLoad.setOnClickListener(v -> loadFromSDCard());
     }
 
+    /**
+     * Verify EditText objects aren't empty and get the index from de EditText
+     * @return True if the verification is ok, otherwise false
+     */
+    private Boolean verifyInputText() {
+        index = WRONG_VOLUME_INDEX;
+        String sIndex = etVolume.getText().toString().trim();
+        fileContent = etInput.getText().toString().trim();
+        if (sIndex.isEmpty() || fileContent.isEmpty()) {
+            Toast.makeText(MainActivity.this, getString(R.string.message_data_error), Toast.LENGTH_LONG).show();
+            FL.e(TAG, "At least, one EditText object is empty");
+            return false;
+        }
+        if (0 <= Integer.parseInt(sIndex)) {
+            index = Integer.parseInt(sIndex);
+            FL.i(TAG, "Volume index: " + index);
+            return true;
+        }
+        else {
+            FL.e(TAG, "Invalid volume index !!!");
+            return false;
+        }
+    }
+
+    /**
+     * This function detects the mounted external storages
+     * @return True if the external storages is mounted, otherwise false
+     */
     private boolean isExternalStorageAvailableForRW() {
         String externalStorageState = Environment.getExternalStorageState();
-        FL.i(TAG, "externalStorageState: " + externalStorageState);
+        FL.i(TAG, "External storage state: " + externalStorageState);
         return externalStorageState.equals(Environment.MEDIA_MOUNTED);
     }
 
@@ -154,17 +186,23 @@ public class MainActivity extends AppCompatActivity {
      * @return path of the volume at the selected index
      */
     private String getExternalVolume(int i) {
+        if (i == -1) return "";
         File[] externalStorageVolumes = ContextCompat.getExternalFilesDirs(getApplicationContext(), null);
         StringBuilder list = new StringBuilder();
+        list.append("Detected volumes:\n");
         for(int k = 0; k < externalStorageVolumes.length; k++) {
             list.append(k).append(": ").append(externalStorageVolumes[k].getAbsolutePath()).append("\n");
         }
-        FL.i(TAG, "Volumes:\n" + list.toString());
+        FL.i(TAG, list.toString());
         tvLoad.setText(list.toString());
         if (i < externalStorageVolumes.length) {
-            return externalStorageVolumes[i].getAbsolutePath() + File.separator + Environment.DIRECTORY_DOCUMENTS;
+            String currentVolume = externalStorageVolumes[i].getAbsolutePath() + File.separator + Environment.DIRECTORY_DOCUMENTS;
+            FL.i(TAG, "Current selected volume: " + currentVolume);
+            return currentVolume;
+        } else {
+            Toast.makeText(MainActivity.this, getString(R.string.message_index_error), Toast.LENGTH_LONG).show();
+            return "";
         }
-        return "";
     }
 
     @Override
@@ -183,15 +221,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void saveInSDCard(int i) {
-        String fileContent = etInput.getText().toString().trim();
+    /**
+     * Save the data from EditText object into a file in the selected volume
+     */
+    private void saveInSDCard() {
+        if (!verifyInputText()) { return; }
 
-        String externalVolume = getExternalVolume(i);
-        if (fileContent.equals("")) {
-            Toast.makeText(MainActivity.this, getString(R.string.message_data_error), Toast.LENGTH_LONG).show();
-            FL.e(TAG, "EditText object is empty");
-            return;
-        }
+        String externalVolume = getExternalVolume(index);
         File myExternalFolder = new File(externalVolume);
         if (!myExternalFolder.exists()) {
             FL.w(TAG, "External folder doesn't exists: " + myExternalFolder.getAbsolutePath());
@@ -217,8 +253,12 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(MainActivity.this, getString(R.string.message_data_saved), Toast.LENGTH_LONG).show();
     }
 
-    private void loadFromSDCard(int i) {
-        String externalStorageVolume = getExternalVolume(i);
+    /**
+     * Read the data from the selected volume
+     */
+    private void loadFromSDCard() {
+
+        String externalStorageVolume = getExternalVolume(index);
         File myExternalFolder = new File(externalStorageVolume);
         if (!myExternalFolder.exists()) {
             FL.e(TAG, "Folder doesn't exists: " + myExternalFolder.getAbsolutePath());
@@ -228,6 +268,7 @@ public class MainActivity extends AppCompatActivity {
         File myExternalFile = new File(myExternalFolder, fileName);
         FL.i(TAG, "File to be read: " + myExternalFile.getAbsolutePath());
         StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("File contents:\n");
         try {
             fr = new FileReader(myExternalFile);
             BufferedReader br = new BufferedReader(fr);
@@ -239,11 +280,14 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            String fileContents = "File contents:\n" + stringBuilder.toString();
-            tvLoad.setText(fileContents);
+            FL.i(TAG, stringBuilder.toString());
+            tvLoad.setText(stringBuilder.toString());
         }
     }
 
+    /**
+     * If the function detects a plugged usb drive, it sends a permission request
+     */
     private void manageUsbDevice() {
         FL.i(TAG, "manageUsbDevice");
         UsbDevice[] devices = enumerateUsbDevices();
@@ -252,9 +296,9 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         // select which device we choose and request the permission to communicate
-        FL.i(TAG, "At least, one usb device detected at least");
+        FL.i(TAG, "At least, one usb device was detected");
         usbManager.requestPermission(devices[0], permissionIntent);
-        FL.i(TAG, "Permission request is sent, end manageUsbDevice");
+        FL.i(TAG, "Permission request is sent to the user");
     }
 
     /**
@@ -301,6 +345,10 @@ public class MainActivity extends AppCompatActivity {
         FL.i(TAG, "Begin registerBroadcastReceiver");
         //USB Manager
         usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        if (usbManager == null) {
+            FL.e(TAG, "getSystemService return null");
+            return;
+        }
 
         permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
 
@@ -310,7 +358,7 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         intentFilter.addAction(ACTION_USB_PERMISSION);
         registerReceiver(usbReceiver, intentFilter);
-        FL.i(TAG, "End registerBroadcastReceiver");
+        FL.i(TAG, "Register intent was sent");
     }
 
     private void test() {
@@ -342,8 +390,9 @@ public class MainActivity extends AppCompatActivity {
                 UsbFile root = fileSystem.getRootDirectory();
                 str.append("root directory: ").append(root.getAbsolutePath()).append("\n");
                 UsbFile[] files = root.listFiles();
+                int i = 0;
                 for (UsbFile file : files)
-                    str.append("file: ").append(file.getName()).append("\n");
+                    str.append("file ").append(++i).append(": ").append(file.getName()).append("\n");
 
                 // create a new file
                 UsbFile newFile = root.createFile("usb_file_" + System.currentTimeMillis() + ".txt");
@@ -362,7 +411,7 @@ public class MainActivity extends AppCompatActivity {
 
                 // Create a new file into the internal storage location, then, writing the content of the read file recently in this new file
                 File sdFile = new File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), newFile.getName());
-                str.append("Created file from read file:\n").append(sdFile.getAbsoluteFile().getPath()).append("\n");
+                str.append("Content of the read file was copied to:\n").append(sdFile.getAbsoluteFile().getPath()).append("\n");
                 FileOutputStream sdOut = new FileOutputStream(sdFile);
 
                 int len;
